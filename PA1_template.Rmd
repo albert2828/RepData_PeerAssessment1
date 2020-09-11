@@ -7,19 +7,133 @@ output:
 
 
 ## Loading and preprocessing the data
+First, we unzip the data that is stored in the "activity.zip" file and load it to R.
 
+```{r}
+unzip("activity.zip")
+activity <- read.csv("activity.csv", header = TRUE)
+```
+And we check if it is necesary to process the data. First we check summary and structure of the data:
 
+```{r}
+summary(activity)
+str(activity)
+```
+We make interval column into a factor so we can use it later to make the plots
 
+```{r}
+activity$interval <- as.factor(activity$interval)
+```
+
+And convert the date column into a date format
+
+```{r}
+activity$date <- as.Date(activity$date, format = "%Y-%m-%d")
+```
 ## What is mean total number of steps taken per day?
 
+To answer this question, we first compute the total steps taken per day
+
+```{r}
+stepsxd <- sapply(split(activity, activity$date), function(x){ sum(x[,1], na.rm = TRUE)})
+```
+We make a data frame so we can plot it
+
+```{r}
+df <- data.frame(stepsxd, days = unique(as.character(activity$date)))
+```
+
+and we make a histogram with this data 
+
+```{r}
+barplot(stepsxd~days, data=df, ylab = "Total of steps", main="Total of steps per day")
+```
+
+And now we compute the mean and median of steps per weekday
+
+```{r}
+df$days <- as.Date(df$days, format = "%Y-%m-%d")
+meansteps <- sapply(split(df, weekdays(df$days)), function(x){mean(x[,1])})
+mediansteps <- sapply(split(df, weekdays(df$days)), function(x){median(x[,1])})
+data.frame(mean=meansteps, median=mediansteps)
+```
 
 
 ## What is the average daily activity pattern?
 
+First we compute the average of steps taken acrooss the 5 minute intervals
+
+```{r}
+avgsteps <- sapply(split(activity, activity$interval), function(x){mean(x[,1], na.rm = TRUE)})
+df2 <- data.frame(interval=1:288, avgsteps)
+```
+and then we make the time series plot
+
+```{r}
+plot(df2, ylab="average of steps", type="l")
+activity$interval[100]
+```
+
+In this plot we can see that the 5-minute interval in which more steps are taken is around the interval 100, that is in the interval between 8:15 and 8:20.
 
 
 ## Imputing missing values
 
+The missing values in the data sets are:
+```{r}
+sum(is.na(activity$steps))
+```
+We can see that there are several days with no count of steps, and we notice this since very day must contain 288 observations.
+
+```{r}
+sapply(split(activity, activity$date), function(x){sum(is.na(x[,1]))})
+```
+
+In order to fill in the missing values, we first duplicate the data frame and we replace the mssing values with -1's and we find the indices where the activity dataset has missing values.
+
+```{r}
+activity_duplicate <- activity
+activity_duplicate[is.na(activity)] <- -1
+na <- is.na(activity$steps)
+```
+
+Next, we make into 0 the indices where activity has no missing values
+
+```{r}
+activity_duplicate$steps[!na] <- 0
+```
+
+Now, we introduce the averaged steps per 5-minute interval in the new dataset.
+
+```{r}
+activity_duplicate$steps2 <- activity_duplicate$steps*avgsteps
+activity_duplicate$steps2 <- (-1)*activity_duplicate$steps2
+activity_duplicate$steps <- activity$steps
+activity_duplicate$steps[na] <- 0
+```
+
+Next, we add original data and new data
+
+```{r}
+activity_duplicate$steps2 <- activity_duplicate$steps+activity_duplicate$steps2
+```
+
+And finally we obtain our new dataset, that has no missing values
+
+```{r}
+activity_2 <- data.frame(steps=activity_duplicate$steps2, activity[,2:3])
+sum(is.na(activity_2$steps))
+```
+
+Now, we repeat the process to make a new plot:
+
+```{r}
+stepsxd <- sapply(split(activity_2, activity$date), function(x){ sum(x[,1])})
+df <- data.frame(stepsxd, days = unique(as.character(activity_2$date)))
+barplot(stepsxd~days, data=df, ylab = "Total of steps", main="Total of steps per day")
+```
+
+To calculate and report mean and median of the new data, we repeat the previous process
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
